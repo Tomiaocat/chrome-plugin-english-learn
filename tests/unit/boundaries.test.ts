@@ -1,8 +1,29 @@
 import { describe, expect, it } from 'vitest';
 import { authorize } from '../../src/infrastructure/messaging/security';
-import { envelopeSchema, providerSchema } from '../../src/contracts/schema';
+import {
+  envelopeSchema,
+  providerSchema,
+  settingsSchema,
+} from '../../src/contracts/schema';
+import { defaultSettings } from '../../src/domain/model';
 
 describe('message trust boundary', () => {
+  it('migrates earlier settings without losing preferences or AI consent', () => {
+    const { excludedSites: _excluded, ...legacy } = defaultSettings;
+    void _excluded;
+    const migrated = settingsSchema.parse({
+      ...legacy,
+      sites: ['https://old-site.com'],
+      perPage: 7,
+      aiSites: ['https://consented.com'],
+    });
+    expect(migrated).toMatchObject({
+      excludedSites: [],
+      perPage: 7,
+      aiSites: ['https://consented.com'],
+    });
+    expect(migrated).not.toHaveProperty('sites');
+  });
   const page = {
     id: 'extension',
     url: 'https://example.com/a',

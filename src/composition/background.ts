@@ -63,7 +63,7 @@ export function startBackground() {
       )
         return { replacements: [], mode: 'local', active: false };
       if (inFlight.has(tabId) || inFlight.size >= 2)
-        return { replacements: [], mode: 'local' };
+        return { replacements: [], mode: 'local', retryAfterMs: 500 };
       inFlight.add(tabId);
       try {
         return await service.analyze(
@@ -97,16 +97,6 @@ export function startBackground() {
     if (request.type === 'review')
       return service.review(request.id, request.eventId, request.remembered);
     if (request.type === 'settings') {
-      for (const site of request.settings.enabled
-        ? request.settings.sites
-        : []) {
-        if (
-          !(await browser.permissions.contains({
-            origins: [`${new URL(site).origin}/*`],
-          }))
-        )
-          throw new AppError('PERMISSION_REQUIRED', '请先授权该网站');
-      }
       await service.saveSettings(request.settings);
       await syncScripts();
       await notifyPages();
@@ -156,22 +146,13 @@ export function startBackground() {
       .map((s) => s.id);
     if (ours.length)
       await browser.scripting.unregisterContentScripts({ ids: ours });
-    const allowed: string[] = [];
-    if (current.enabled)
-      for (const site of current.sites) {
-        if (
-          await browser.permissions.contains({
-            origins: [`${new URL(site).origin}/*`],
-          })
-        )
-          allowed.push(`${new URL(site).origin}/*`);
-      }
-    if (allowed.length) {
+    if (current.enabled) {
       await browser.scripting.registerContentScripts([
         {
           id: 'word-context-sites',
           js: ['content-scripts/content.js'],
-          matches: allowed,
+          matches: ['https://*/*', 'http://*/*'],
+          excludeMatches: current.excludedSites.map((origin) => `${origin}/*`),
           runAt: 'document_idle',
         },
       ]);
@@ -182,9 +163,8 @@ export function startBackground() {
             (tab) =>
               tab.id &&
               tab.url &&
-              allowed.some((origin) =>
-                tab.url!.startsWith(origin.slice(0, -1)),
-              ),
+              /^https?:\/\//.test(tab.url) &&
+              !current.excludedSites.includes(new URL(tab.url).origin),
           )
           .map((tab) =>
             browser.scripting.executeScript({

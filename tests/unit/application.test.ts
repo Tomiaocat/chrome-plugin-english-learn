@@ -15,7 +15,7 @@ import type {
 import { starterDictionary } from '../../src/infrastructure/dictionary/starter';
 
 function setup(dictionary: DictionaryPort = starterDictionary) {
-  let settings = { ...defaultSettings, sites: ['https://example.com'] };
+  let settings = { ...defaultSettings };
   const items = new Map<string, Vocabulary>();
   const provider: Provider = {
     id: 'p',
@@ -101,12 +101,33 @@ describe('learning use cases', () => {
     expect(result.mode).toBe('local');
     expect(result.replacements).toHaveLength(1);
   });
-  it('stops replacement on disabled or unapproved sites', async () => {
-    const { service } = setup();
+  it('runs on new sites by default and stops on excluded sites or global pause', async () => {
+    const { service, store } = setup();
+    expect(
+      (
+        await service.analyze(
+          [{ id: 'a', text: '这个团队很好' }],
+          'https://new-site.com',
+          [],
+        )
+      ).replacements,
+    ).toHaveLength(1);
+    await store.set({
+      ...defaultSettings,
+      excludedSites: ['https://unapproved.com'],
+    });
     expect(
       await service.analyze(
         [{ id: 'a', text: '这个团队很好' }],
         'https://unapproved.com',
+        [],
+      ),
+    ).toMatchObject({ active: false, replacements: [] });
+    await store.set({ ...defaultSettings, enabled: false });
+    expect(
+      await service.analyze(
+        [{ id: 'a', text: '这个团队很好' }],
+        'https://new-site.com',
         [],
       ),
     ).toMatchObject({ active: false, replacements: [] });

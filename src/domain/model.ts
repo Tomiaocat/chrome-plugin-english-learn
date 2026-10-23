@@ -53,7 +53,7 @@ export interface Settings {
   aiEnabled: boolean;
   dailyAiLimit: number;
   aiSites: string[];
-  sites: string[];
+  excludedSites: string[];
   activeProviderId: string | null;
 }
 export const defaultSettings: Settings = {
@@ -64,7 +64,7 @@ export const defaultSettings: Settings = {
   aiEnabled: false,
   dailyAiLimit: 50,
   aiSites: [],
-  sites: [],
+  excludedSites: [],
   activeProviderId: null,
 };
 export interface Provider {
@@ -94,6 +94,7 @@ export interface Analysis {
   mode: 'local' | 'ai';
   notice?: string;
   active?: boolean;
+  retryAfterMs?: number;
 }
 export interface Snapshot {
   settings: Settings;

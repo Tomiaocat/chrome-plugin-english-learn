@@ -9,7 +9,7 @@ export const settingsSchema = z.object({
   aiEnabled: z.boolean(),
   dailyAiLimit: z.number().int().min(1).max(500),
   aiSites: z.array(z.url()).max(200),
-  sites: z.array(z.url()).max(200),
+  excludedSites: z.array(z.url()).max(200).default([]),
   activeProviderId: z.string().max(100).nullable(),
 });
 export const providerSchema = z.object({

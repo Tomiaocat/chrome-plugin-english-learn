@@ -73,7 +73,7 @@ export function OptionsApp({ client }: { client: AppClient }) {
         <div className={s.sideNote}>
           每天一点，慢慢发生。
           <br />
-          本地优先 · v0.2.0
+          本地优先 · v0.3.0
           <br />
           <small>
             {data
@@ -393,6 +393,7 @@ function ReviewView({ data, client, refresh, onError }: Props) {
 function SettingsView({ data, client, refresh, onError }: Props) {
   const [settings, setSettings] = useState(data.settings);
   const [site, setSite] = useState('');
+  const [aiSite, setAiSite] = useState('');
   const [notice, setNotice] = useState('');
   const [busy, setBusy] = useState(false);
   async function save(next = settings) {
@@ -413,15 +414,28 @@ function SettingsView({ data, client, refresh, onError }: Props) {
       const url = new URL(site);
       if (!['https:', 'http:'].includes(url.protocol))
         throw new Error('请输入 http 或 https 网站地址');
-      const permission = client.grantOrigin(url.origin);
-      if (!(await permission)) throw new Error('未获得网站权限');
       await save({
         ...settings,
-        sites: [...new Set([...settings.sites, url.origin])],
+        excludedSites: [...new Set([...settings.excludedSites, url.origin])],
+        aiSites: settings.aiSites.filter((v) => v !== url.origin),
       });
       setSite('');
     } catch (e) {
-      onError(e instanceof Error ? e.message : '无法添加网站');
+      onError(e instanceof Error ? e.message : '无法停用网站');
+    }
+  }
+  async function addAiSite() {
+    try {
+      const url = new URL(aiSite);
+      if (!['https:', 'http:'].includes(url.protocol))
+        throw new Error('请输入 http 或 https 网站地址');
+      await save({
+        ...settings,
+        aiSites: [...new Set([...settings.aiSites, url.origin])],
+      });
+      setAiSite('');
+    } catch (error) {
+      onError(error instanceof Error ? error.message : '无法保存 AI 授权');
     }
   }
   async function importFile(file?: File) {
@@ -508,8 +522,11 @@ function SettingsView({ data, client, refresh, onError }: Props) {
         </button>
       </section>
       <section className={s.panel}>
-        <h2>开启的网站</h2>
-        <p>只在这些网站运行。关闭后恢复当前网页中的中文。</p>
+        <h2>停用的网站</h2>
+        <p>
+          默认在所有普通 HTTP/HTTPS
+          网页运行。将不想替换的网站加入这里，当前页面会恢复中文；也可以在插件弹窗中单独停用。
+        </p>
         <div className={s.row}>
           <input
             className={s.input}
@@ -524,48 +541,73 @@ function SettingsView({ data, client, refresh, onError }: Props) {
             disabled={!site || busy}
             onClick={() => void addSite()}
           >
-            授权并添加
+            停用此网站
           </button>
         </div>
-        {settings.sites.map((origin) => (
+        {settings.excludedSites.map((origin) => (
           <div className={s.site} key={origin}>
             <span className={s.code}>{origin}</span>
             <div className={s.row}>
-              <label className={s.check}>
-                <input
-                  type="checkbox"
-                  checked={settings.aiSites.includes(origin)}
-                  onChange={(e) => {
-                    const next = {
-                      ...settings,
-                      aiSites: e.target.checked
-                        ? [...settings.aiSites, origin]
-                        : settings.aiSites.filter((v) => v !== origin),
-                    };
-                    setSettings(next);
-                    void save(next);
-                  }}
-                />
-                允许发送文段给 AI
-              </label>
               <button
                 className={s.quiet}
                 onClick={() =>
                   void save({
                     ...settings,
-                    sites: settings.sites.filter((v) => v !== origin),
-                    aiSites: settings.aiSites.filter((v) => v !== origin),
+                    excludedSites: settings.excludedSites.filter(
+                      (v) => v !== origin,
+                    ),
                   })
                 }
               >
-                停用
+                恢复默认开启
               </button>
             </div>
           </div>
         ))}
-        {!settings.sites.length && (
-          <p>还没有开启的网站。也可以在网页中点击插件图标开启。</p>
+        {!settings.excludedSites.length && (
+          <p>没有停用的网站，所有普通网页默认开启。</p>
         )}
+      </section>
+      <section className={s.panel}>
+        <h2>允许 AI 分析的网站</h2>
+        <p>
+          默认开启只使用本地词库。只有开启 AI
+          服务并单独添加到这里的网站，才允许将文段发给你配置的 AI 服务。
+        </p>
+        <div className={s.row}>
+          <input
+            className={s.input}
+            style={{ flex: 1 }}
+            aria-label="AI 授权网站地址"
+            placeholder="https://example.com"
+            value={aiSite}
+            onChange={(event) => setAiSite(event.target.value)}
+          />
+          <button
+            className={s.secondary}
+            disabled={!aiSite || busy}
+            onClick={() => void addAiSite()}
+          >
+            允许发送文段给 AI
+          </button>
+        </div>
+        {settings.aiSites.map((origin) => (
+          <div className={s.site} key={origin}>
+            <span className={s.code}>{origin}</span>
+            <button
+              className={s.quiet}
+              onClick={() =>
+                void save({
+                  ...settings,
+                  aiSites: settings.aiSites.filter((value) => value !== origin),
+                })
+              }
+            >
+              撤销 AI 授权
+            </button>
+          </div>
+        ))}
+        {!settings.aiSites.length && <p>还没有网站获得 AI 文段授权。</p>}
       </section>
       <section className={s.panel}>
         <h2>数据留在你的浏览器</h2>

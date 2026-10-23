@@ -108,7 +108,7 @@ export function applyReplacements(
 }
 
 export function startPageAdapter(
-  client: AppClient,
+  client: Pick<AppClient, 'analyze'>,
   onOpen: (value: WordAnchor) => void,
 ) {
   let stopped = false;
@@ -146,13 +146,13 @@ export function startPageAdapter(
         characterData: true,
       });
   }
-  function schedule() {
+  function schedule(delay = 250) {
     if (stopped) return;
     pending = true;
     clearTimeout(timer);
     timer = setTimeout(() => {
       void scan();
-    }, 250);
+    }, delay);
   }
   async function scan() {
     if (stopped || running) return;
@@ -167,11 +167,18 @@ export function startPageAdapter(
       text: node.data,
     }));
     nodes.forEach((node) => seen.set(node, node.data));
+    let retryAfterMs: number | undefined;
     try {
       const analysis: Analysis = await client.analyze(segments, [
         ...encountered,
       ]);
       if (stopped || version !== currentVersion) return;
+      if (analysis.retryAfterMs) {
+        nodes.forEach((node) => seen.delete(node));
+        retryAfterMs = analysis.retryAfterMs;
+        pending = true;
+        return;
+      }
       observer.disconnect();
       active = analysis.active !== false;
       if (!active) return;
@@ -198,7 +205,8 @@ export function startPageAdapter(
     } finally {
       running = false;
       observe();
-      if (!stopped && active && (pending || nodes.length === 30)) schedule();
+      if (!stopped && active && (pending || nodes.length === 30))
+        schedule(retryAfterMs);
     }
   }
   function restore() {

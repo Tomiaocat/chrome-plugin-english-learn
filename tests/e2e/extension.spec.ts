@@ -1,5 +1,5 @@
 import { test, expect, chromium } from '@playwright/test';
-import { cp, readFile, writeFile, mkdir } from 'node:fs/promises';
+import { cp, readFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { defaultSettings } from '../../src/domain/model';
 declare const chrome: typeof import('wxt/browser').browser;
@@ -11,16 +11,11 @@ test('real extension: replacement, card, vocabulary, review and restoring Chines
   const manifest = JSON.parse(
     await readFile(path.join(production, 'manifest.json'), 'utf8'),
   );
-  expect(manifest.host_permissions).toBeUndefined();
+  expect(manifest.host_permissions).toEqual(['https://*/*', 'http://*/*']);
   expect(manifest.permissions).not.toContain('cookies');
-  // Only the isolated test copy gets localhost access; the distributable stays optional-only.
+  // Isolate the unpacked copy and browser data without changing production permissions.
   const extension = testInfo.outputPath('extension');
   await cp(production, extension, { recursive: true });
-  manifest.host_permissions = ['http://127.0.0.1/*'];
-  await writeFile(
-    path.join(extension, 'manifest.json'),
-    JSON.stringify(manifest),
-  );
   const installedChrome = process.env.TEST_CHROME_CHANNEL === 'chrome';
   console.log('Starting isolated browser');
   const context = await chromium.launchPersistentContext(
@@ -74,7 +69,7 @@ test('real extension: replacement, card, vocabulary, review and restoring Chines
             setTimeout(() => resolve('storage timed out'), 5000),
           ),
         ]),
-      { ...defaultSettings, perPage: 30, sites: ['http://127.0.0.1:4173'] },
+      { ...defaultSettings, perPage: 30 },
     );
     expect(initialized).toBe('stored');
     console.log('Initial settings stored');
@@ -97,6 +92,39 @@ test('real extension: replacement, card, vocabulary, review and restoring Chines
     console.log('Reading tab created');
     await page.goto('http://127.0.0.1:4173');
     console.log('Reading fixture opened');
+    // Fresh websites work immediately without individual activation.
+    await expect(
+      page.getByRole('button', { name: '查看 team 的释义' }).first(),
+    ).toBeVisible();
+    const popup = await context.newPage();
+    await options.evaluate(async () => {
+      const [reading] = await chrome.tabs.query({ url: 'http://127.0.0.1/*' });
+      await chrome.tabs.update(reading!.id!, { active: true });
+    });
+    await popup.goto(`chrome-extension://${extensionId}/popup.html`);
+    await expect(popup.getByLabel('当前网站状态')).toHaveText(
+      '当前网站：默认开启',
+    );
+    await expect(popup.getByLabel('启用阅读替换')).toBeChecked();
+    await popup
+      .getByRole('button', { name: '在此网站停用', exact: true })
+      .click();
+    await expect(popup.getByLabel('当前网站状态')).toHaveText(
+      '当前网站：已停用',
+    );
+    await expect(page.locator('[data-word-context=""]')).toHaveCount(0);
+    await page.reload();
+    await expect(page.locator('word-context-card')).toHaveCount(0);
+    await popup
+      .getByRole('button', { name: '在此网站开启', exact: true })
+      .click();
+    await expect(popup.getByLabel('当前网站状态')).toHaveText(
+      '当前网站：默认开启',
+    );
+    await expect(
+      popup.getByRole('button', { name: '在此网站停用', exact: true }),
+    ).toBeVisible();
+    await popup.close();
     await expect(
       page.getByRole('button', { name: '查看 team 的释义' }).first(),
     ).toBeVisible();

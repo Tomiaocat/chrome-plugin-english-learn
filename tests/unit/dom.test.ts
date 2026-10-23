@@ -1,15 +1,53 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   applyReplacements,
   collectTextNodes,
+  startPageAdapter,
 } from '../../src/infrastructure/dom/page-adapter';
 import { starterWords } from '../../src/infrastructure/dictionary/starter';
 
 afterEach(() => {
+  vi.useRealTimers();
   document.body.replaceChildren();
 });
 describe('page preservation', () => {
+  it('retries a busy background without losing unprocessed text', async () => {
+    vi.useFakeTimers();
+    document.body.innerHTML = '<p>这个团队很好</p>';
+    const analyze = vi
+      .fn()
+      .mockResolvedValueOnce({
+        mode: 'local',
+        replacements: [],
+        retryAfterMs: 500,
+      })
+      .mockResolvedValue({
+        mode: 'local',
+        replacements: [
+          {
+            segmentId: '0',
+            start: 2,
+            end: 4,
+            original: '团队',
+            word: starterWords.find((word) => word.english === 'team')!,
+          },
+        ],
+      });
+    const adapter = startPageAdapter({ analyze }, () => {});
+    try {
+      await vi.advanceTimersByTimeAsync(250);
+      expect(analyze).toHaveBeenCalledTimes(1);
+      expect(document.querySelector('[data-word-context]')).toBeNull();
+      await vi.advanceTimersByTimeAsync(500);
+      expect(analyze).toHaveBeenCalledTimes(2);
+      expect(
+        document.querySelector('button')?.getAttribute('aria-label'),
+      ).toContain('team');
+    } finally {
+      adapter.stop();
+    }
+  });
   it('skips editors, code, hidden text and plugin nodes', () => {
     document.body.innerHTML =
       '<p>这个团队很好</p><textarea>团队编辑内容</textarea><div contenteditable="true">团队编辑内容</div><pre>团队代码内容</pre><p hidden>团队隐藏内容</p><span data-word-context>团队插件内容</span>';

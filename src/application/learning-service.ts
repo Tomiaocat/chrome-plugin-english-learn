@@ -70,7 +70,7 @@ export class LearningService {
     encountered: string[],
   ): Promise<Analysis> {
     const settings = await this.settings.get();
-    if (!settings.enabled || !settings.sites.includes(origin))
+    if (!settings.enabled || settings.excludedSites.includes(origin))
       return { replacements: [], mode: 'local', active: false };
     const vocabulary = await this.learning.list();
     const candidates = findCandidates(
