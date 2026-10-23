@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <title>词间 · 阅读体验页</title>
+    <style>
+      body {
+        max-width: 760px;
+        margin: 70px auto;
+        padding: 24px;
+        background: #f6f7f2;
+        color: #293e32;
+        font: 18px/2 system-ui;
+      }
+      h1 {
+        font-size: 34px;
+      }
+      p {
+        margin: 25px 0;
+      }
+      small {
+        color: #788873;
+      }
+      button,
+      input,
+      textarea {
+        font: inherit;
+        padding: 8px;
+      }
+      pre {
+        background: #e9eddf;
+        padding: 16px;
+        font-size: 14px;
+      }
+      article {
+        padding: 28px;
+        border: 1px solid #dae2d1;
+        background: #fffef8;
+        border-radius: 14px;
+      }
+    </style>
+  </head>
+  <body>
+    <small>词间 / READING LAB</small>
+    <h1>在工作的间隙，遇见英语。</h1>
+    <article>
+      <p id="reading">
+        这个团队有一个清晰的目标。我们的项目有新的计划，也需要控制成本。
+      </p>
+      <p>好的方法能提高效率。我们会根据反馈调整策略，为学习创造更好的环境。</p>
+      <p id="dynamic">每一个结果都能带来新的经验。</p>
+      <p id="compounds">项目经理查看时间戳和环境变量。</p>
+    </article>
+    <p>
+      <button id="add">加载新的内容</button>
+      <button id="update">更新已有文本</button>
+    </p>
+    <label>编辑区域（不会替换）<textarea>团队正在制定计划</textarea></label>
+    <pre><code>团队的代码块，不应替换。</code></pre>
+    <script>
+      document.getElementById('add').onclick = () => {
+        const p = document.createElement('p');
+        p.textContent = '团队分享了项目的信息与资源。';
+        document.querySelector('article').append(p);
+      };
+      document.getElementById('update').onclick = () => {
+        document.getElementById('dynamic').firstChild.data =
+          '这个问题需要团队一起解决。';
+      };
+    </script>
+  </body>
+</html>

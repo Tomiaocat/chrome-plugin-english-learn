@@ -1,0 +1,11 @@
+{
+  "version": "ecdict-core-v1",
+  "commit": "bc015ed2e24a7abef49fc6dbbb7fe32c1dadaf8b",
+  "sha256": "1a6947e04785db63613a92e14903cdae7954f7e84860b10e68e5c7cbb3f9c3cf",
+  "dataSha256": "f5ae457e92e63572193c918495507c175acae18a9ae7fa0733ee5038cd9a2899",
+  "entries": 16053,
+  "source": "ECDICT / MIT",
+  "filter": "lowercase headwords; frq <= 15000 or bnc <= 15000 or zk/gk/cet4/cet6 or curated",
+  "frequencyCoverage": 170,
+  "curatedHeadwords": 170
+}
